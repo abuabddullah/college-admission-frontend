@@ -32,7 +32,6 @@ const dbGoogleLoginHelper = async (payload: {
     if (data.user) {
       localStorage.setItem("currentUser", JSON.stringify(data.user));
     }
-
     return data;
   } catch (error) {
     console.error("Error in dbGoogleLoginHelper:", error);

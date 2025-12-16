@@ -1,14 +1,18 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { useSignInWithGoogle } from "react-firebase-hooks/auth";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import auth from "../../lib/firebase.init";
 import dbGoogleLoginHelper from "../../lib/dbGoogleLoginHelper";
 import { Loader2 } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
 
 const GoogleSignIn = () => {
   const [isMounted, setIsMounted] = useState(false);
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const { updateUser } = useAuth();
+
   const from = searchParams?.get("from") || "/";
 
   const [signInWithGoogle, user, loading, error] = useSignInWithGoogle(auth);
@@ -30,17 +34,24 @@ const GoogleSignIn = () => {
   // Handle successful login
   useEffect(() => {
     if (user) {
-      console.log("🚀 ~ GoogleSignIn ~ user:", user);
       if (user?.user) {
         const { email, displayName } = user.user;
         if (email) {
-          dbGoogleLoginHelper({
-            email,
-            name: displayName,
-            authProvider: "google",
-          });
-          // Use window.location for navigation to ensure full page reload
-          window.location.href = from;
+          (async () => {
+            try {
+              const data = await dbGoogleLoginHelper({
+                email,
+                name: displayName,
+                authProvider: "google",
+              });
+              if (data && data.user) {
+                updateUser(data.user);
+                router.push(from);
+              }
+            } catch (err) {
+              console.error("Google login helper error", err);
+            }
+          })();
         }
       }
     }
@@ -109,6 +120,7 @@ export default GoogleSignIn;
 // import auth from "../../lib/firebase.init";
 // import dbGoogleLoginHelper from "../../lib/dbGoogleLoginHelper";
 // import { Loader2 } from "lucide-react";
+// import { useAuth } from "@/lib/auth-context";
 
 // const GoogleSignIn = () => {
 //   const navigate = useNavigate();
