@@ -6,7 +6,7 @@ const dbGoogleLoginHelper = async (payload: {
 
   try {
     const response = await fetch(
-      "http://localhost:5000/api/auth/google-login",
+      "https://college-admission-five.vercel.app/api/auth/google-login",
       {
         method: "POST",
         headers: {
