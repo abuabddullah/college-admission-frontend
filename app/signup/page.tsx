@@ -20,6 +20,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { GraduationCap } from "lucide-react";
 
+import GoogleSignIn from "@/components/auth/GoogleSignIn";
+
 export default function SignupPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -105,6 +107,7 @@ export default function SignupPage() {
                 Login
               </Link>
             </p>
+            <GoogleSignIn />
           </CardFooter>
         </form>
       </Card>
