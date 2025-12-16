@@ -1,8 +1,7 @@
 "use client"
 
 import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Header } from "@/components/header"
 import { Button } from "@/components/ui/button"
@@ -10,27 +9,115 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useAuth } from "@/lib/auth-context"
 import { useToast } from "@/hooks/use-toast"
-import { mockColleges, type Booking } from "@/lib/mock-data"
-import { ArrowLeft, CheckCircle } from "lucide-react"
+import { collegeAPI, bookingAPI } from "@/lib/api"
+import type { College } from "@/lib/types"
+import { ArrowLeft, CheckCircle, Loader2, AlertCircle } from "lucide-react"
 
-export default function BookAdmissionPage({ params }: { params: { id: string } }) {
-  const { id } = params
+export default function BookAdmissionPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter()
   const { user } = useAuth()
   const { toast } = useToast()
 
-  const college = mockColleges.find((c) => c.id === id)
+  const [id, setId] = useState<string>("")
+  const [college, setCollege] = useState<College | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  useEffect(() => {
+    params.then((p) => setId(p.id))
+  }, [params])
 
   const [formData, setFormData] = useState({
     studentName: user?.name || "",
     email: user?.email || "",
-    phone: "",
+    phone: user?.phone || "",
     course: "",
+    previousEducation: "",
+    grade: "",
+    address: "",
+    guardianName: "",
+    guardianPhone: "",
   })
 
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  useEffect(() => {
+    if (!id) return
+    fetchCollege()
+  }, [id])
+
+  useEffect(() => {
+    if (user) {
+      setFormData((prev) => ({
+        ...prev,
+        studentName: user.name,
+        email: user.email,
+        phone: user.phone || "",
+      }))
+    }
+  }, [user])
+
+  const fetchCollege = async () => {
+    try {
+      setIsLoading(true)
+      setError(null)
+      const data = await collegeAPI.getById(id)
+      setCollege(data)
+    } catch (err) {
+      console.error("Error fetching college:", err)
+      setError("Failed to load college details.")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  if (!user) {
+    router.push("/login")
+    return null
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsSubmitting(true)
+    setError(null)
+
+    try {
+      await bookingAPI.create({
+        collegeId: id,
+        ...formData,
+      })
+
+      toast({
+        title: "Booking Successful!",
+        description: "Your admission booking has been submitted.",
+      })
+
+      router.push("/my-bookings")
+    } catch (err: any) {
+      console.error("Booking error:", err)
+      setError(err.message || "Failed to submit booking. Please try again.")
+      toast({
+        title: "Booking Failed",
+        description: err.message || "Failed to submit booking. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="flex justify-center items-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </div>
+    )
+  }
 
   if (!college) {
     return (
@@ -44,49 +131,6 @@ export default function BookAdmissionPage({ params }: { params: { id: string } }
     )
   }
 
-  if (!user) {
-    router.push("/login")
-    return null
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsSubmitting(true)
-
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-
-    // Get existing bookings
-    const bookingsData = localStorage.getItem("bookings")
-    const bookings: Booking[] = bookingsData ? JSON.parse(bookingsData) : []
-
-    // Create new booking
-    const newBooking: Booking = {
-      id: Date.now().toString(),
-      collegeId: college.id,
-      collegeName: college.name,
-      userId: user.id,
-      studentName: formData.studentName,
-      email: formData.email,
-      phone: formData.phone,
-      course: formData.course,
-      status: "pending",
-      date: new Date().toISOString(),
-    }
-
-    bookings.push(newBooking)
-    localStorage.setItem("bookings", JSON.stringify(bookings))
-
-    setIsSubmitting(false)
-
-    toast({
-      title: "Booking Successful!",
-      description: "Your admission booking has been submitted.",
-    })
-
-    router.push("/my-bookings")
-  }
-
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -96,6 +140,13 @@ export default function BookAdmissionPage({ params }: { params: { id: string } }
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
         </Button>
+
+        {error && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
         <Card>
           <CardHeader>
@@ -107,70 +158,146 @@ export default function BookAdmissionPage({ params }: { params: { id: string } }
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="studentName">Full Name *</Label>
+                  <Input
+                    id="studentName"
+                    type="text"
+                    value={formData.studentName}
+                    onChange={(e) => setFormData({ ...formData, studentName: e.target.value })}
+                    required
+                    placeholder="John Doe"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email *</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    required
+                    placeholder="john@example.com"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone Number *</Label>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    required
+                    placeholder="+1 (555) 000-0000"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="course">Select Course *</Label>
+                  <Select
+                    value={formData.course}
+                    onValueChange={(value) => setFormData({ ...formData, course: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose a course" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {college.courses.map((course) => (
+                        <SelectItem key={course} value={course}>
+                          {course}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="previousEducation">Previous Education *</Label>
+                  <Input
+                    id="previousEducation"
+                    type="text"
+                    value={formData.previousEducation}
+                    onChange={(e) => setFormData({ ...formData, previousEducation: e.target.value })}
+                    required
+                    placeholder="High School, Bachelor's, etc."
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="grade">Grade/GPA *</Label>
+                  <Input
+                    id="grade"
+                    type="text"
+                    value={formData.grade}
+                    onChange={(e) => setFormData({ ...formData, grade: e.target.value })}
+                    required
+                    placeholder="3.8 GPA or A+"
+                  />
+                </div>
+              </div>
+
               <div className="space-y-2">
-                <Label htmlFor="studentName">Full Name</Label>
+                <Label htmlFor="address">Address *</Label>
                 <Input
-                  id="studentName"
+                  id="address"
                   type="text"
-                  value={formData.studentName}
-                  onChange={(e) => setFormData({ ...formData, studentName: e.target.value })}
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                   required
-                  placeholder="John Doe"
+                  placeholder="123 Main St, City, State, ZIP"
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  required
-                  placeholder="john@example.com"
-                />
-              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="guardianName">Guardian Name (Optional)</Label>
+                  <Input
+                    id="guardianName"
+                    type="text"
+                    value={formData.guardianName}
+                    onChange={(e) => setFormData({ ...formData, guardianName: e.target.value })}
+                    placeholder="Jane Doe"
+                  />
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  required
-                  placeholder="+1 (555) 000-0000"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="course">Select Course</Label>
-                <Select value={formData.course} onValueChange={(value) => setFormData({ ...formData, course: value })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose a course" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {college.courses.map((course) => (
-                      <SelectItem key={course} value={course}>
-                        {course}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="space-y-2">
+                  <Label htmlFor="guardianPhone">Guardian Phone (Optional)</Label>
+                  <Input
+                    id="guardianPhone"
+                    type="tel"
+                    value={formData.guardianPhone}
+                    onChange={(e) => setFormData({ ...formData, guardianPhone: e.target.value })}
+                    placeholder="+1 (555) 000-0000"
+                  />
+                </div>
               </div>
 
               <div className="border-t pt-4">
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-lg font-semibold">Admission Fee</span>
-                  <span className="text-2xl font-bold">${college.admissionFee}</span>
+                  <span className="text-lg font-semibold">Tuition Fee (Annual)</span>
+                  <span className="text-2xl font-bold">${college.tuitionFee.toLocaleString()}</span>
                 </div>
                 <p className="text-sm text-muted-foreground mb-4">
-                  This is a booking fee. Full tuition details will be provided after confirmation.
+                  Full tuition details and payment plans will be provided after confirmation.
                 </p>
               </div>
 
               <Button type="submit" className="w-full" size="lg" disabled={isSubmitting || !formData.course}>
-                {isSubmitting ? "Submitting..." : "Submit Application"}
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Submitting...
+                  </>
+                ) : (
+                  "Submit Application"
+                )}
               </Button>
             </form>
           </CardContent>

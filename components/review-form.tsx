@@ -1,15 +1,14 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAuth } from "@/lib/auth-context"
 import { useToast } from "@/hooks/use-toast"
-import type { Review } from "@/lib/mock-data"
-import { Star } from "lucide-react"
+import { reviewAPI } from "@/lib/api"
+import { Star, Loader2 } from "lucide-react"
 
 interface ReviewFormProps {
   collegeId: string
@@ -47,38 +46,32 @@ export function ReviewForm({ collegeId, onReviewSubmitted }: ReviewFormProps) {
 
     setIsSubmitting(true)
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 500))
+    try {
+      await reviewAPI.create({
+        collegeId,
+        rating,
+        comment,
+      })
 
-    // Get existing reviews
-    const reviewsData = localStorage.getItem("reviews")
-    const reviews: Review[] = reviewsData ? JSON.parse(reviewsData) : []
+      setRating(0)
+      setComment("")
 
-    // Create new review
-    const newReview: Review = {
-      id: Date.now().toString(),
-      collegeId,
-      userId: user.id,
-      userName: user.name,
-      userAvatar: user.avatar || "/placeholder.svg",
-      rating,
-      comment,
-      date: new Date().toISOString().split("T")[0],
+      toast({
+        title: "Review Submitted!",
+        description: "Thank you for your feedback.",
+      })
+
+      onReviewSubmitted()
+    } catch (error: any) {
+      console.error("Review submission error:", error)
+      toast({
+        title: "Submission Failed",
+        description: error.message || "Failed to submit review. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
     }
-
-    reviews.push(newReview)
-    localStorage.setItem("reviews", JSON.stringify(reviews))
-
-    setIsSubmitting(false)
-    setRating(0)
-    setComment("")
-
-    toast({
-      title: "Review Submitted!",
-      description: "Thank you for your feedback.",
-    })
-
-    onReviewSubmitted()
   }
 
   if (!user) {
@@ -136,7 +129,14 @@ export function ReviewForm({ collegeId, onReviewSubmitted }: ReviewFormProps) {
           </div>
 
           <Button type="submit" disabled={isSubmitting || rating === 0} className="w-full">
-            {isSubmitting ? "Submitting..." : "Submit Review"}
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Submitting...
+              </>
+            ) : (
+              "Submit Review"
+            )}
           </Button>
         </form>
       </CardContent>

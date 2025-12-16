@@ -1,14 +1,44 @@
+"use client"
+
+import type React from "react"
+
+import { useState, useEffect } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
 import { Header } from "@/components/header"
-import { mockColleges } from "@/lib/mock-data"
-import { Star, MapPin, ArrowRight, GraduationCap, Building2, Users } from "lucide-react"
+import { collegeAPI } from "@/lib/api"
+import type { College } from "@/lib/types"
+import { Star, MapPin, ArrowRight, GraduationCap, Building2, Users, Search } from "lucide-react"
 import Image from "next/image"
 
 export default function HomePage() {
-  const featuredColleges = mockColleges.slice(0, 3)
+  const [featuredColleges, setFeaturedColleges] = useState<College[]>([])
+  const [searchQuery, setSearchQuery] = useState("")
+  const router = useRouter()
+
+  useEffect(() => {
+    fetchFeaturedColleges()
+  }, [])
+
+  const fetchFeaturedColleges = async () => {
+    try {
+      const colleges = await collegeAPI.getAll({ sortBy: "rating" })
+      setFeaturedColleges(colleges.slice(0, 3))
+    } catch (err) {
+      console.error("Error fetching colleges:", err)
+    }
+  }
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (searchQuery.trim()) {
+      router.push(`/colleges?search=${encodeURIComponent(searchQuery.trim())}`)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -27,6 +57,23 @@ export default function HomePage() {
             Browse through world-class institutions, explore facilities, read reviews, and book your admission all in
             one place.
           </p>
+
+          <form onSubmit={handleSearch} className="max-w-2xl mx-auto mb-8">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search colleges by name, location, or course..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-12 pr-4 py-6 text-lg rounded-full shadow-lg"
+              />
+              <Button type="submit" size="lg" className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full">
+                Search
+              </Button>
+            </div>
+          </form>
+
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button size="lg" asChild>
               <Link href="/colleges">
@@ -74,46 +121,58 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-            {featuredColleges.map((college) => (
-              <Card key={college.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                <div className="relative h-48 w-full">
-                  <Image src={college.image || "/placeholder.svg"} alt={college.name} fill className="object-cover" />
-                </div>
-                <CardHeader>
-                  <CardTitle className="text-xl">{college.name}</CardTitle>
-                  <CardDescription className="flex items-center gap-1">
-                    <MapPin className="h-4 w-4" />
-                    {college.location}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground line-clamp-2 mb-4">{college.description}</p>
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="flex items-center gap-1">
-                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                      <span className="font-semibold">{college.rating}</span>
-                    </div>
-                    <span className="text-sm text-muted-foreground">({college.reviewCount} reviews)</span>
-                  </div>
-                </CardContent>
-                <CardFooter>
-                  <Button asChild className="w-full">
-                    <Link href={`/colleges/${college.id}`}>View Details</Link>
-                  </Button>
-                </CardFooter>
-              </Card>
-            ))}
-          </div>
+          {featuredColleges.length > 0 && (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                {featuredColleges.map((college) => {
+                  const collegeId = college._id || college.id || ""
+                  return (
+                    <Card key={collegeId} className="overflow-hidden hover:shadow-lg transition-shadow">
+                      <div className="relative h-48 w-full">
+                        <Image
+                          src={college.image || "/placeholder.svg"}
+                          alt={college.name}
+                          fill
+                          className="object-cover"
+                        />
+                      </div>
+                      <CardHeader>
+                        <CardTitle className="text-xl">{college.name}</CardTitle>
+                        <CardDescription className="flex items-center gap-1">
+                          <MapPin className="h-4 w-4" />
+                          {college.location}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-sm text-muted-foreground line-clamp-2 mb-4">{college.description}</p>
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="flex items-center gap-1">
+                            <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                            <span className="font-semibold">{college.rating.toFixed(1)}</span>
+                          </div>
+                          <span className="text-sm text-muted-foreground">({college.type})</span>
+                        </div>
+                      </CardContent>
+                      <CardFooter>
+                        <Button asChild className="w-full">
+                          <Link href={`/colleges/${collegeId}`}>View Details</Link>
+                        </Button>
+                      </CardFooter>
+                    </Card>
+                  )
+                })}
+              </div>
 
-          <div className="text-center">
-            <Button variant="outline" size="lg" asChild>
-              <Link href="/colleges">
-                View All Colleges
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
-          </div>
+              <div className="text-center">
+                <Button variant="outline" size="lg" asChild>
+                  <Link href="/colleges">
+                    View All Colleges
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </section>
 
