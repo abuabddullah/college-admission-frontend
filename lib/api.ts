@@ -1,4 +1,4 @@
-// API Service Layer for Backend Integration
+NEXT_PUBLIC_API_URL// API Service Layer for Backend Integration
 const API_URL = "https://college-admission-five.vercel.app";
 
 // Helper function to handle API errors
