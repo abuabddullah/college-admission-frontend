@@ -71,12 +71,12 @@ const GoogleSignIn = () => {
   }
 
   return (
-    <div className="bg-white rounded-t-lg p-8">
-      <p className="text-center text-sm text-gray-400 font-light">
+    <div className="bg-white rounded-t-lg ">
+      <p className="text-center text-sm text-gray-400 font-light mb-4">
         Sign in with
       </p>
       <div>
-        <div className="flex items-center justify-center space-x-4 my-3">
+        <div className="flex items-center justify-center space-x-4">
           <button
             onClick={() => signInWithGoogle()}
             className="flex items-center py-2 px-4 text-sm uppercase rounded bg-white hover:bg-gray-100 text-gray-500 border border-transparent hover:border-transparent hover:text-gray-700 shadow-md hover:shadow-lg font-medium transition transform hover:-translate-y-0.5"
