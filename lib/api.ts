@@ -67,6 +67,24 @@ export const authAPI = {
     return handleResponse(response);
   },
 
+  async forgotPassword(email: string) {
+    const response = await fetch(`${API_URL}/api/auth/forgot-password`, {
+      method: "POST",
+      headers: createHeaders(),
+      body: JSON.stringify({ email }),
+    });
+    return handleResponse(response);
+  },
+
+  async resetPassword(data: { token: string; password: string }) {
+    const response = await fetch(`${API_URL}/api/auth/reset-password`, {
+      method: "POST",
+      headers: createHeaders(),
+      body: JSON.stringify(data),
+    });
+    return handleResponse(response);
+  },
+
   async updateProfile(data: {
     name?: string;
     phone?: string;
