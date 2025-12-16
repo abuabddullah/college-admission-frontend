@@ -1,5 +1,5 @@
 // API Service Layer for Backend Integration
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://v0-mern-stack-college-platform.vercel.app"
 
 // Helper function to handle API errors
 const handleResponse = async (response: Response) => {
